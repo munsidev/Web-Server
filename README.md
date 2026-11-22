@@ -74,36 +74,165 @@ Web-Server/
 
 ---
 
-## 4. Installation & Quick Start
+## 4. Complete Setup & Project Running Procedure
 
-1. **Clone or transfer the toolkit** to your Ubuntu lab environment:
-   ```bash
-   cd ~/Documents/Web-Server
-   ```
+Follow these step-by-step instructions to run and test the project on an Ubuntu machine or VM.
 
-2. **Make the script executable**:
-   ```bash
-   chmod +x webserver-toolkit.sh
-   ```
+### Step 1: Clone the Repository to Your Ubuntu Machine
+```bash
+# Clone repository from GitHub
+git clone https://github.com/munsidev/Web-Server.git
 
-3. **Verify Bash syntax and run pre-flight checks**:
-   ```bash
-   # Syntax validation
-   bash -n webserver-toolkit.sh
+# Enter project directory
+cd Web-Server
+```
+*(Alternatively, extract `webserver-toolkit.tar.gz`: `tar -xzvf webserver-toolkit.tar.gz && cd Web-Server`)*
 
-   # System checks (non-destructive)
-   ./webserver-toolkit.sh --check
-   ```
+---
 
-4. **Launch the interactive menu**:
-   ```bash
-   ./webserver-toolkit.sh
-   ```
+### Step 2: Make the Script Executable & Validate Syntax
+```bash
+# Grant execution permissions
+chmod +x webserver-toolkit.sh
 
-5. **Run in Dry-Run mode** (previews all commands and file changes without executing them):
-   ```bash
-   ./webserver-toolkit.sh --dry-run
-   ```
+# Verify shell syntax (clean exit code 0)
+bash -n webserver-toolkit.sh
+```
+
+---
+
+### Step 3: Run Pre-Flight Diagnostic Checks
+Before altering any system state, verify your operating system, sudo privileges, required binaries, and disk space:
+```bash
+./webserver-toolkit.sh --check
+```
+*Confirms target Ubuntu version (20.04/22.04/24.04 LTS), sudo rights, and ensures at least 100 MB free disk space.*
+
+---
+
+### Step 4: Launch the Interactive Menu
+```bash
+./webserver-toolkit.sh
+```
+
+---
+
+### Step 5: Install & Harden Nginx (Menu Option 2)
+1. In the menu, type **`2`** and press **Enter**.
+2. Review the planned package changes (`apt-get install -y nginx`).
+3. Type **`y`** to confirm installation.
+4. The toolkit will:
+   - Install official Ubuntu Nginx.
+   - Enforce `server_tokens off;` in `/etc/nginx/nginx.conf` (hiding Nginx version headers from potential attackers).
+   - Validate configuration with `nginx -t`.
+   - Start and enable the Nginx service.
+
+---
+
+### Step 6: Create Virtual Hosts (Menu Option 3)
+
+#### A. Create `site1.lab` (Plain HTTP):
+1. In the menu, select **Option 3**.
+2. Enter domain: **`site1.lab`**
+3. Document root: Press **Enter** to accept default (`/var/www/site1.lab`).
+4. Enable HTTPS: Type **`n`** and press **Enter**.
+5. Confirm creation: Type **`y`**.
+
+#### B. Create `site2.lab` (HTTPS with TLS & Self-Signed Certificate):
+1. In the menu, select **Option 3** again.
+2. Enter domain: **`site2.lab`**
+3. Document root: Press **Enter** to accept default (`/var/www/site2.lab`).
+4. Enable HTTPS: Type **`y`** and press **Enter**.
+5. Confirm creation: Type **`y`**.
+   - Generates a 2048-bit RSA key and X.509 certificate.
+   - Sets private key permissions strictly to **`0600`** (`-rw-------`, root-only access).
+   - Configures HTTP port 80 to permanently redirect to HTTPS port 443 with TLS 1.3.
+
+#### C. List All Configured Sites (Menu Option 4):
+Select **Option 4** to see the formatted status table showing `site1.lab` and `site2.lab` with `Enabled` status.
+
+---
+
+### Step 7: Map the Domains Locally in `/etc/hosts`
+To access the sites in your Ubuntu browser and via `curl` without altering external DNS:
+```bash
+echo "127.0.0.1 site1.lab site2.lab" | sudo tee -a /etc/hosts
+```
+> **Note**: This resolves strictly inside your computer (`127.0.0.1`). It never sends traffic through your home Wi-Fi or router.
+
+---
+
+### Step 8: Verify Working Sites (Terminal & Web Browser)
+
+#### Test via Terminal (`curl`):
+```bash
+# 1. Test HTTP virtual host:
+curl -I http://site1.lab
+# Output: HTTP/1.1 200 OK (Server: nginx without version number)
+
+# 2. Test HTTPS port 80 redirect:
+curl -I http://site2.lab
+# Output: HTTP/1.1 301 Moved Permanently -> https://site2.lab/
+
+# 3. Test HTTPS encrypted response (-k ignores self-signed warning):
+curl -I -k https://site2.lab
+# Output: HTTP/1.1 200 OK (TLS 1.3 encrypted)
+
+# 4. Inspect TLS handshake and ciphers:
+curl -v -k https://site2.lab 2>&1 | grep -E 'SSL connection using|Server certificate'
+```
+
+#### Test via Web Browser (Firefox / Chrome):
+1. Navigate to: `http://site1.lab`  
+   *Displays the styled "Virtual Host Active: site1.lab" test page.*
+2. Navigate to: `https://site2.lab`  
+   *Browser shows expected "Self-Signed Certificate / Potential Security Risk" warning.*  
+   Click **Advanced** -> **Accept the Risk and Continue** to view the secure HTTPS test page.
+
+---
+
+### Step 9: Run Automated Security Audit (Menu Option 8)
+Select **Option 8** (or run `./webserver-toolkit.sh --audit`) to run the CIS compliance audit:
+- [x] Information Disclosure (`server_tokens off;`)
+- [x] Directory Traversal Prevention (`autoindex off;`)
+- [x] Private Key File Permissions (`0600`)
+- [x] HTTP Security Headers (`X-Frame-Options`, `nosniff`, `Referrer-Policy`)
+- [x] Process Privilege Separation (`www-data` unprivileged worker)
+
+---
+
+### Step 10: How to Stop, Resume, or Reset the Server
+
+The toolkit provides built-in procedures to control the service or completely reset the lab:
+
+#### To Stop / Pause the Server (Free ports and RAM, preserve all sites):
+* Via Menu: Select **Option 14**
+* Via Terminal:
+  ```bash
+  ./webserver-toolkit.sh --stop
+  ```
+
+#### To Resume / Start the Server:
+* Via Menu: Select **Option 15**
+* Via Terminal:
+  ```bash
+  ./webserver-toolkit.sh --start
+  ```
+
+#### To Completely Clean Up / Teardown the Lab (Remove sites, certs, `/etc/hosts`):
+* Via Menu: Select **Option 16**
+* Via Terminal:
+  ```bash
+  ./webserver-toolkit.sh --teardown
+  ```
+
+---
+
+### Step 11: Instant Professor Demo Mode
+For a fast 15-second animated demonstration showcasing all OS concepts on screen:
+```bash
+./webserver-toolkit.sh --demo
+```
 
 ---
 
@@ -126,6 +255,9 @@ When launched without flags, the toolkit displays a numbered menu:
 | **11** | **Configure Fail2ban** | Configures automated IP-banning jail for Nginx authentication abuse and bot scans. |
 | **12** | **View Backups** | Lists all automatic configuration backups stored in `/var/backups/nginx-toolkit`. |
 | **13** | **Toggle Dry-Run Mode** | Switches on/off simulation mode for safe testing. |
+| **14** | **Stop / Pause Web Server** | Stops active Nginx processes, frees ports 80/443, and disables boot auto-start (preserves all sites). |
+| **15** | **Start / Resume Web Server** | Validates configuration with `nginx -t` and enables/starts Nginx service. |
+| **16** | **Complete Lab Teardown** | Guided removal of toolkit virtual hosts, test pages, certificates, and `/etc/hosts` entries. |
 | **0** | **Exit Toolkit** | Terminates script cleanly. |
 
 ---
